@@ -42,17 +42,17 @@ julia> df = DataFrame(; x = rand(100), y = rand(-10:5, 100), z = rand(["foo", "b
  Row │ x          y      z      
      │ Float64    Int64  String 
 ─────┼──────────────────────────
-   1 │ 0.245152      -6  foo
-   2 │ 0.179314       3  baz
-   3 │ 0.277796     -10  foo
-   4 │ 0.311074      -1  bar
-   5 │ 0.418602       0  bar
+   1 │ 0.367867      -2  baz
+   2 │ 0.703514      -1  foo
+   3 │ 0.601461      -4  foo
+   4 │ 0.634581       0  foo
+   5 │ 0.141402       2  bar
   ⋮  │     ⋮        ⋮      ⋮
-  96 │ 0.306416      -3  foo
-  97 │ 0.0104802     -4  baz
-  98 │ 0.561862      -1  foo
-  99 │ 0.737305      -1  foo
- 100 │ 0.53696       -4  baz
+  96 │ 0.454924      -9  foo
+  97 │ 0.967125       2  baz
+  98 │ 0.236152       0  baz
+  99 │ 0.0679799     -9  foo
+ 100 │ 0.54899        3  foo
                  90 rows omitted
 ```
 
@@ -64,8 +64,30 @@ julia> gate = @gate (x in Interval(0, 0.2) && y in 0:5) || z == "foo"
 (Gate(x ∈ [0.0 .. 0.2]) ∩ Gate(y ∈ 0:5)) ∪ Gate(z == foo)
 ```
 
-which means all rows where either `0 <= x <= 0.2` and
+which represent all rows where either `0 <= x <= 0.2` and
 `0 <= y <= 5`, or `z == "foo"`.
+
+Selecting them is done through the `filter` function
+
+```julia
+julia> filter(gate, df)
+42×3 SubDataFrame
+ Row │ x          y      z      
+     │ Float64    Int64  String 
+─────┼──────────────────────────
+   1 │ 0.703514      -1  foo
+   2 │ 0.601461      -4  foo
+   3 │ 0.634581       0  foo
+   4 │ 0.141402       2  bar
+   5 │ 0.165646       5  bar
+  ⋮  │     ⋮        ⋮      ⋮
+  38 │ 0.161969     -10  foo
+  39 │ 0.259732     -10  foo
+  40 │ 0.454924      -9  foo
+  41 │ 0.0679799     -9  foo
+  42 │ 0.54899        3  foo
+                 32 rows omitted
+```
 
 Currently, the supported operation are `in`, `==`, and `!`,
 and `||` and `&&` allow to compose them in more complicated gates.
