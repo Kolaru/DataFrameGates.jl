@@ -24,8 +24,9 @@ end
 
 @memoize Dict function selectedby(gate::SelectionGate, df::DataFrame)
     return map(df[!, gate.field]) do value
-        value == gate.value
+        coalesce(value == gate.value, false)
     end
+    return coalesce.(false, selection)
 end
 
 function Base.show(io::IO, gate::SelectionGate)
@@ -42,7 +43,7 @@ end
 
 @memoize Dict function selectedby(gate::MemberGate, df::DataFrame)
     return map(df[!, gate.field]) do value
-        value in gate.ensemble
+        coalesce(value in gate.ensemble, false)
     end
 end
 
