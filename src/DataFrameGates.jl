@@ -157,13 +157,23 @@ function select_groups(gate::AbstractGate, grouped::GroupedDataFrame ; combine =
 end
 
 #== Macro ==#
-# TODO comparisons e.g. x < 0.3, -10 <= x <= 10
 
 macro gate(expr)
     res = MacroTools.postwalk(expr) do ex
         @capture(ex, key_ == val_) && return :(SelectionGate($(QuoteNode(key)), $val))
         @capture(ex, key_ in ensemble_) && return :(MemberGate($(QuoteNode(key)), $ensemble))
         @capture(ex, key_ ∈ ensemble_) && return :(MemberGate($(QuoteNode(key)), $ensemble))
+
+        @capture(ex, lo_ <= key_ <= hi_) && return :(MemberGate($(QuoteNode(key)), $Interval{$Closed, $Closed}($lo, $hi)))
+        @capture(ex, lo_ < key_ <= hi_) && return :(MemberGate($(QuoteNode(key)), $Interval{$Open, $Closed}($lo, $hi)))
+        @capture(ex, lo_ <= key_ < hi_) && return :(MemberGate($(QuoteNode(key)), $Interval{$Closed, $Open}($lo, $hi)))
+        @capture(ex, lo_ < key_ < hi_) && return :(MemberGate($(QuoteNode(key)), $Interval{$Open, $Open}($lo, $hi)))
+
+        @capture(ex, key_ <= hi_) && return return :(MemberGate($(QuoteNode(key)), $Interval{$Closed, $Closed}(-Inf, $hi)))
+        @capture(ex, key_ < hi_) && return return :(MemberGate($(QuoteNode(key)), $Interval{$Closed, $Open}(-Inf, $hi)))
+
+        @capture(ex, key_ >= lo_) && return return :(MemberGate($(QuoteNode(key)), $Interval{$Closed, $Closed}($lo, Inf)))
+        @capture(ex, key_ > lo_) && return return :(MemberGate($(QuoteNode(key)), $Interval{$Open, $Closed}($lo, Inf)))
 
         @capture(ex, cond1_ || cond2_) && return :(GateUnion($cond1, $cond2))
         @capture(ex, cond1_ && cond2_) && return :(GateIntersection($cond1, $cond2))
