@@ -22,7 +22,7 @@ end
 
 (gate::SelectionGate)(row) = (row[gate.field] == gate.value)
 
-@memoize Dict function selectedby(gate::SelectionGate, df::DataFrame)
+@memoize Dict function selectedby(gate::SelectionGate, df::AbstractDataFrame)
     return map(df[!, gate.field]) do value
         coalesce(value == gate.value, false)
     end
@@ -41,7 +41,7 @@ end
 
 (gate::MemberGate)(row) = (row[gate.field] in gate.ensemble)
 
-@memoize Dict function selectedby(gate::MemberGate, df::DataFrame)
+@memoize Dict function selectedby(gate::MemberGate, df::AbstractDataFrame)
     return map(df[!, gate.field]) do value
         coalesce(value in gate.ensemble, false)
     end
@@ -68,7 +68,7 @@ function Base.union(gates::Vararg{AbstractGate})
     return GateUnion(gates)
 end
 
-function selectedby(gate::GateUnion, df::DataFrame)
+function selectedby(gate::GateUnion, df::AbstractDataFrame)
     return reduce((.|), selectedby.(gate.gates, Ref(df)))
 end
 
@@ -90,7 +90,7 @@ GateIntersection(gates...) = GateIntersection(gates)
 
 (gate::GateIntersection)(row) = all(g(row) for g in gate.gates)
 
-function selectedby(gate::GateIntersection, df::DataFrame)
+function selectedby(gate::GateIntersection, df::AbstractDataFrame)
     return reduce((.&), selectedby.(gate.gates, Ref(df)))
 end
 
@@ -114,7 +114,7 @@ end
 
 (gate::InvertedGate)(row) = !gate.base_gate(row)
 
-function selectedby(gate::InvertedGate, df::DataFrame)
+function selectedby(gate::InvertedGate, df::AbstractDataFrame)
     return .!(selectedby(gate.base_gate, df))
 end
 
@@ -130,11 +130,11 @@ end
 #== Functionnalities ==#
 
 """
-    filter(gate::AbstractGate, df::DataFrame)
+    filter(gate::AbstractGate, df::AbstractDataFrame)
 
 Return a new DataFrame containing only the rows that respect the gating conditions.
 """
-Base.filter(gate::AbstractGate, df::DataFrame) = @view df[selectedby(gate, df), :]
+Base.filter(gate::AbstractGate, df::AbstractDataFrame) = @view df[selectedby(gate, df), :]
 
 @memoize Dict function groups_selectedby(gate::AbstractGate, grouped::GroupedDataFrame)
     groups = combine(grouped) do group
