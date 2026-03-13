@@ -156,11 +156,28 @@ function select_groups(gate::AbstractGate, grouped::GroupedDataFrame ; combine =
     return DataFrames.combine(groups, All())
 end
 
-#== Macro ==#
+"""
+    @gate expr
 
+Create a Gate using the same syntax as boolean comparisons.
+
+For example, the following creates a gate ensuring that the `x` column is `1`:
+```
+@gate x == 1
+```
+
+The macro supports equality operators (`==`, `!=`), comparison operators (`<`, `>` `<=`, `>=`) and `in`.
+
+The conditions can be composed using `&&`, `||` and `!`, for example
+```
+@gate (x < 1) && !(y in [11, 22, 33])
+```
+"""
 macro gate(expr)
     res = MacroTools.postwalk(expr) do ex
         @capture(ex, key_ == val_) && return :(SelectionGate($(QuoteNode(key)), $val))
+        @capture(ex, key_ != val_) && return :(!SelectionGate($(QuoteNode(key)), $val))
+
         @capture(ex, key_ in ensemble_) && return :(MemberGate($(QuoteNode(key)), $ensemble))
         @capture(ex, key_ ∈ ensemble_) && return :(MemberGate($(QuoteNode(key)), $ensemble))
 
@@ -181,11 +198,7 @@ macro gate(expr)
         return ex
     end
 
-    # Second pass to turn use the local definitions for the remaining symbols
-    return MacroTools.postwalk(res) do ex
-        ex isa Symbol && first(string(ex)) != '@' && return esc(ex)
-        return ex
-    end
+    return esc(res)
 end
 
 end

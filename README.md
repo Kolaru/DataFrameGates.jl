@@ -89,9 +89,6 @@ julia> filter(gate, df)
                  32 rows omitted
 ```
 
-Currently, the supported operation are `in`, `==`, and `!`,
-and `||` and `&&` allow to compose them in more complicated gates.
-
 
 ## Composition
 

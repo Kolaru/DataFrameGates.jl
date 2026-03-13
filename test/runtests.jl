@@ -68,4 +68,10 @@ end
     f3 = filter(g3, df)
     @test size(f3) == (3, 3)
     @test f3.z == [3, 1, 4]
+
+    g4 = @gate (x != 4)
+    f4 = filter(g4, df)
+    @test size(f4) == (3, 3)
+    @test f4.x == [3, 2, 1]
+    @test f4.y == [3, 5, 7]
 end
