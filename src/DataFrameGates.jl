@@ -5,7 +5,8 @@ using Intervals
 using MacroTools
 using Memoization
 
-export AbstractGate,SelectionGate, MemberGate, GateIntersection, GateUnion, InvertedGate
+export AbstractGate, SelectionGate, MemberGate, ConditionGate
+export GateIntersection, GateUnion, InvertedGate
 export selectedby, select_groups
 export @gate
 
@@ -15,6 +16,7 @@ export Interval
 abstract type AbstractGate end
 
 #== Base Gates ==#
+#== SelectionGate (==) ==#
 struct SelectionGate{T} <: AbstractGate
     field::Symbol
     value::T
@@ -33,7 +35,7 @@ function Base.show(io::IO, gate::SelectionGate)
     print(io, "Gate($(gate.field) == $(gate.value))")
 end
 
-
+#== MemberGate (in) ==#
 struct MemberGate{T} <: AbstractGate
     field::Symbol
     ensemble::T
@@ -53,9 +55,27 @@ function Base.show(io::IO, gate::MemberGate)
     print(io, "Gate($(gate.field) ∈ $(gate.ensemble))")
 end
 
+#== ConditionGate (function) ==#
+struct ConditionGate{F} <: AbstractGate
+    field::Symbol
+    condition::F
+end
+
+(gate::ConditionGate)(row) = (gate.condition(row[gate.field]))
+
+Base.:(==)(g1::ConditionGate, g2::ConditionGate) = (g1.field == g2.field && g1.condition == g2.condition)
+
+@memoize Dict function selectedby(gate::ConditionGate, df::AbstractDataFrame)
+    return gate.condition.(df[!, gate.field])
+end
+
+function Base.show(io::IO, gate::ConditionGate)
+    print(io, "Gate($(gate.condition)($(gate.field)))")
+end
+
 
 #== Compound Gates ==#
-
+#== GateUnion (∪) ==#
 struct GateUnion{T <: Tuple} <: AbstractGate
     gates::T
 end
@@ -81,7 +101,7 @@ function Base.show(io::IO, gate::GateUnion)
     print(io, join(strs, " ∪ "))
 end
 
-
+#== GateIntersection (∩) ==#
 struct GateIntersection{T <: Tuple} <: AbstractGate
     gates::T
 end
@@ -107,7 +127,7 @@ function Base.show(io::IO, gate::GateIntersection)
     print(io, join(strs, " ∩ "))
 end
 
-
+#== InvertedGate (!) ==#
 struct InvertedGate{T <: AbstractGate} <: AbstractGate
     base_gate::T
 end
