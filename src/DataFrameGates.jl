@@ -5,7 +5,7 @@ using Intervals
 using MacroTools
 using Memoization
 
-export AbstractGate, SelectionGate, MemberGate, ConditionGate
+export AbstractGate, AlwaysGate, SelectionGate, MemberGate, ConditionGate
 export GateIntersection, GateUnion, InvertedGate
 export selectedby, select_groups
 export @gate
@@ -16,6 +16,11 @@ export Interval
 abstract type AbstractGate end
 
 #== Base Gates ==#
+#== AlwaysGate ==#
+struct AlwaysGate end
+(gate::AlwaysGate)(row) = true
+selectedby(gate::AlwaysGate, df::AbstractDataFrame) = axes(df, 2)
+
 #== SelectionGate (==) ==#
 struct SelectionGate{T} <: AbstractGate
     field::Symbol
@@ -219,6 +224,10 @@ macro gate(expr)
     end
 
     return esc(res)
+end
+
+macro gate()
+    return :(AlwaysGate())
 end
 
 end

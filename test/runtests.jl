@@ -9,6 +9,10 @@ using Test
         y = [1.1, 2.2, 3.3, 4.4, 5.5]
     )
 
+    gate = AlwaysGate()
+    filtered = filter(gate, df)
+    @test filtered == df
+
     gate = SelectionGate(:x, 3)  
     filtered = filter(gate, df)
     @test size(filtered) == (1, 2)
@@ -74,4 +78,6 @@ end
     @test size(f4) == (3, 3)
     @test f4.x == [3, 2, 1]
     @test f4.y == [3, 5, 7]
+
+    @test @gate() == AlwaysGate()
 end
