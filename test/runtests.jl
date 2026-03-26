@@ -2,7 +2,7 @@ using DataFrameGates
 using DataFrames
 using Intervals
 using Test
-
+using Unitful
 @testset "Basic gates" begin
     df = DataFrame(
         x = [1, 2, 3, 4, 5],
@@ -80,4 +80,18 @@ end
     @test f4.y == [3, 5, 7]
 
     @test @gate() == AlwaysGate()
+end
+
+@testset "Unitful" begin
+    df = DataFrame(
+        x = [1, 2, 3, 4]u"s",
+        y = [1, 2, 3, 4]
+    )
+    f1 = filter(@gate(x == 1u"s"), df)
+    @test length(f1.y) == 1
+    @test only(f1.y) == 1
+
+    f2 = filter(@gate(x >= 3u"s"), df)
+    @test length(f2.y) == 2
+    @test f2.y == [3, 4]
 end
