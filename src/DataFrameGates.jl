@@ -17,9 +17,9 @@ abstract type AbstractGate end
 
 #== Base Gates ==#
 #== AlwaysGate ==#
-struct AlwaysGate end
+struct AlwaysGate <: AbstractGate end
 (gate::AlwaysGate)(row) = true
-selectedby(gate::AlwaysGate, df::AbstractDataFrame) = axes(df, 2)
+selectedby(::AlwaysGate, df::AbstractDataFrame) = ones(Bool, nrow(df))
 
 #== SelectionGate (==) ==#
 struct SelectionGate{T} <: AbstractGate

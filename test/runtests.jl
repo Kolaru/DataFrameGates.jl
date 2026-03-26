@@ -50,6 +50,9 @@ end
     f3 = filter(!g1, df)
     @test size(f3) == (4, 2)
     @test f3.x == [1, 5, 12, 24]
+
+    @test filter(g1, df) == filter(g1 ∩ AlwaysGate(), df)
+    @test filter(g2, df) == filter(g2 ∩ AlwaysGate(), df)
 end
 
 @testset "macro" begin
