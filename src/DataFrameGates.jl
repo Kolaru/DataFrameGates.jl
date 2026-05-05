@@ -7,7 +7,7 @@ using Memoization
 
 export AbstractGate, AlwaysGate, SelectionGate, MemberGate, ConditionGate
 export GateIntersection, GateUnion, InvertedGate
-export selectedby, select_groups
+export selectedby, select_groups, isapplicable
 export @gate
 
 export Interval
@@ -15,11 +15,14 @@ export Interval
 #== Gates ==#
 abstract type AbstractGate end
 
+isapplicable(gate::AbstractGate, df::AbstractDataFrame) = hasproperty(df, gate.field)
+
 #== Base Gates ==#
 #== AlwaysGate ==#
 struct AlwaysGate <: AbstractGate end
 (gate::AlwaysGate)(row) = true
 selectedby(::AlwaysGate, df::AbstractDataFrame) = ones(Bool, nrow(df))
+isapplicable(::AlwaysGate, df::AbstractDataFrame) = true
 
 #== SelectionGate (==) ==#
 struct SelectionGate{T} <: AbstractGate
@@ -94,8 +97,13 @@ function Base.union(gates::Vararg{AbstractGate})
 end
 
 function selectedby(gate::GateUnion, df::AbstractDataFrame)
-    return reduce((.|), selectedby.(gate.gates, Ref(df)))
+    return mapreduce(.|, gate.gates) do gate
+        !isapplicable(gate, df) && return falses(nrow(df))
+        return selectedby(gate, df)
+    end
 end
+
+isapplicable(gate::GateUnion, df::AbstractDataFrame) = any(isapplicable.(gate.gates, Ref(df)))
 
 function Base.show(io::IO, gate::GateUnion)
     strs = map(gate.gates) do g
@@ -118,6 +126,8 @@ GateIntersection(gates...) = GateIntersection(gates)
 function selectedby(gate::GateIntersection, df::AbstractDataFrame)
     return reduce((.&), selectedby.(gate.gates, Ref(df)))
 end
+
+isapplicable(gate::GateIntersection, df::AbstractDataFrame) = all(isapplicable.(gate.gates, Ref(df)))
 
 function Base.intersect(gates::Vararg{AbstractGate})
     return GateIntersection(gates)
@@ -143,6 +153,8 @@ function selectedby(gate::InvertedGate, df::AbstractDataFrame)
     return .!(selectedby(gate.base_gate, df))
 end
 
+isapplicable(gate::InvertedGate, df::AbstractDataFrame) = isapplicable(gate.base_gate, df)
+
 function Base.:(!)(gate::AbstractGate)
     return InvertedGate(gate)
 end
@@ -167,7 +179,6 @@ Base.filter(gate::AbstractGate, df::AbstractDataFrame) = @view df[selectedby(gat
     end
     return groups.selected
 end
-
 
 """
     select_groups(gate::AbstractGate, grouped::GroupedDataFrame ; combine = true)

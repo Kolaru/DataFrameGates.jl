@@ -53,6 +53,9 @@ end
 
     @test filter(g1, df) == filter(g1 ∩ AlwaysGate(), df)
     @test filter(g2, df) == filter(g2 ∩ AlwaysGate(), df)
+
+    # Invalid indices are ignored in UnionGates
+    @test filter(g1, df) == filter(g1 ∪ SelectionGate(:z, 22), df)
 end
 
 @testset "macro" begin
@@ -83,6 +86,18 @@ end
     @test f4.y == [3, 5, 7]
 
     @test @gate() == AlwaysGate()
+end
+
+@testset "isapplicable" begin
+    df = DataFrame(
+        yes = ["y", "e", "s"]
+    )
+
+    @test isapplicable(@gate(yes == "x"), df)
+    @test !isapplicable(@gate(no == "n"), df)
+
+    @test isapplicable(@gate(yes in ["a"]), df)
+    @test isapplicable(@gate(yes in ["a"]), df)
 end
 
 @testset "Unitful" begin
