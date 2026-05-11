@@ -15,14 +15,14 @@ export Interval
 #== Gates ==#
 abstract type AbstractGate end
 
-isapplicable(gate::AbstractGate, df::AbstractDataFrame) = hasproperty(df, gate.field)
+isapplicable(gate::AbstractGate, df::Union{AbstractDataFrame, DataFrameRow}) = hasproperty(df, gate.field)
 
 #== Base Gates ==#
 #== AlwaysGate ==#
 struct AlwaysGate <: AbstractGate end
 (gate::AlwaysGate)(row) = true
 selectedby(::AlwaysGate, df::AbstractDataFrame) = ones(Bool, nrow(df))
-isapplicable(::AlwaysGate, df::AbstractDataFrame) = true
+isapplicable(::AlwaysGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
 
 #== SelectionGate (==) ==#
 struct SelectionGate{T} <: AbstractGate
@@ -90,7 +90,9 @@ end
 
 GateUnion(gates...) = GateUnion(gates)
 
-(gate::GateUnion)(row) = any(g(row) for g in gate.gates)
+function (gate::GateUnion)(row)
+    any(isapplicable(g, row) && g(row) for g in gate.gates)
+end
 
 function Base.union(gates::Vararg{AbstractGate})
     return GateUnion(gates)
@@ -103,7 +105,7 @@ function selectedby(gate::GateUnion, df::AbstractDataFrame)
     end
 end
 
-isapplicable(gate::GateUnion, df::AbstractDataFrame) = any(isapplicable.(gate.gates, Ref(df)))
+isapplicable(gate::GateUnion, df::Union{AbstractDataFrame, DataFrameRow}) = any(isapplicable.(gate.gates, Ref(df)))
 
 function Base.show(io::IO, gate::GateUnion)
     strs = map(gate.gates) do g
@@ -127,7 +129,7 @@ function selectedby(gate::GateIntersection, df::AbstractDataFrame)
     return reduce((.&), selectedby.(gate.gates, Ref(df)))
 end
 
-isapplicable(gate::GateIntersection, df::AbstractDataFrame) = all(isapplicable.(gate.gates, Ref(df)))
+isapplicable(gate::GateIntersection, df::Union{AbstractDataFrame, DataFrameRow}) = all(isapplicable.(gate.gates, Ref(df)))
 
 function Base.intersect(gates::Vararg{AbstractGate})
     return GateIntersection(gates)
@@ -153,7 +155,7 @@ function selectedby(gate::InvertedGate, df::AbstractDataFrame)
     return .!(selectedby(gate.base_gate, df))
 end
 
-isapplicable(gate::InvertedGate, df::AbstractDataFrame) = isapplicable(gate.base_gate, df)
+isapplicable(gate::InvertedGate, df::Union{AbstractDataFrame, DataFrameRow}) = isapplicable(gate.base_gate, df)
 
 function Base.:(!)(gate::AbstractGate)
     return InvertedGate(gate)
