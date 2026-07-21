@@ -175,6 +175,7 @@ Return a new DataFrame containing all groups for which at least one row
 respect the gating condition.
 """
 function select_groups(gate::AbstractGate, grouped::GroupedDataFrame ; combine = true)
+    Base.depwarn("select_groups is deprecated in favor of the PerGroup (or PerShot for CEIAnalysis) gates", :select_groups ; force = true)
     groups = grouped[groups_selectedby(gate, grouped)]
     !combine && return groups
     return DataFrames.combine(groups, All())
