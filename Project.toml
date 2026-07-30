@@ -1,19 +1,21 @@
 name = "DataFrameGates"
 uuid = "9b2ceffa-7062-4978-ab82-60af2f483a2b"
-authors = ["Benoît Richard <kolaru@hotmail.com> and contributors"]
 version = "1.0.0-DEV"
+authors = ["Benoît Richard <kolaru@hotmail.com> and contributors"]
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Intervals = "d8418881-c3e1-53bb-8760-2df7ec849ed5"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
+ThreadSafeDicts = "4239201d-c60e-5e0a-9702-85d713665ba7"
 
 [compat]
 DataFrames = "1.8.1"
 Intervals = "1.10.0"
 MacroTools = "0.5.16"
 Memoization = "0.2.2"
+ThreadSafeDicts = "0.1.6"
 julia = "1.10"
 
 [extras]

@@ -16,7 +16,9 @@ GroupGate(condition, cols::Symbol, aggregator) = GroupGate(condition, [cols], ag
 GroupGate(condition, cols::Symbol, n::Int) = GroupGate(condition, cols, Count(n))
 GroupGate(condition, cols::Symbol, allowed::AbstractVector) = GroupGate(condition, cols, Count(allowed))
 
-@memoize Dict function selectedby(gate::GroupGate, grouped::GroupedDataFrame)
+(gate::GroupGate)(values) = gate.aggregator(gate.condition.(eachrow(group)))
+
+function selectedby(gate::GroupGate, grouped::GroupedDataFrame)
     groups = combine(grouped) do group
         (; selected = gate.aggregator(gate.condition.(eachrow(group))))
     end
@@ -24,8 +26,8 @@ GroupGate(condition, cols::Symbol, allowed::AbstractVector) = GroupGate(conditio
 end
 
 #== Compound GroupGate gates ==#
-struct GroupGateIntersection{T <: Tuple} <: AbstractGroupGate
-    gates::T
+struct GroupGateIntersection <: AbstractGroupGate
+    gates::Vector{AbstractGroupGate}
     cols::Vector{Symbol}
 end
 
@@ -35,10 +37,10 @@ function Base.intersect(gates::Vararg{AbstractGroupGate})
         throw(ArgumentError("The GroupGate must all use the same grouping column, found $cols"))
     end
 
-    return GroupGateIntersection(gates, gates[1].cols)
+    return GroupGateIntersection(collect(gates), gates[1].cols)
 end
 
-@memoize Dict function selectedby(gate::GroupGateIntersection, grouped::GroupedDataFrame)
+function selectedby(gate::GroupGateIntersection, grouped::GroupedDataFrame)
     return reduce((.&), selectedby.(gate.gates, Ref(grouped)))
 end
 

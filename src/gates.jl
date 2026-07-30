@@ -7,14 +7,14 @@ isapplicable(gate::AbstractGate, df::Union{AbstractDataFrame, DataFrameRow}) = h
 #== AlwaysGate ==#
 struct AlwaysGate <: AbstractGate end
 (gate::AlwaysGate)(row) = true
-selectedby(::AlwaysGate, df::AbstractDataFrame) = ones(Bool, nrow(df))
+_selectedby(::AlwaysGate, df::AbstractDataFrame) = ones(Bool, nrow(df))
 isapplicable(::AlwaysGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
 
 #== NeverGate ==#
 
 struct NeverGate <: AbstractGate end
 (gate::NeverGate)(row) = false
-selectedby(::NeverGate, df::AbstractDataFrame) = zeros(Bool, nrow(df))
+_selectedby(::NeverGate, df::AbstractDataFrame) = zeros(Bool, nrow(df))
 isapplicable(::NeverGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
 
 #== SelectionGate (==) ==#
@@ -23,13 +23,12 @@ struct SelectionGate{T} <: AbstractGate
     value::T
 end
 
-(gate::SelectionGate)(row) = (row[gate.field] == gate.value)
+(gate::SelectionGate)(row::DataFrameRow) = (row[gate.field] == gate.value)
 
-@memoize Dict function selectedby(gate::SelectionGate, df::AbstractDataFrame)
+function _selectedby(gate::SelectionGate, df::AbstractDataFrame)
     return map(df[!, gate.field]) do value
         coalesce(value == gate.value, false)
     end
-    return coalesce.(false, selection)
 end
 
 function Base.show(io::IO, gate::SelectionGate)
@@ -44,7 +43,7 @@ end
 
 (gate::MemberGate)(row) = (row[gate.field] in gate.ensemble)
 
-@memoize Dict function selectedby(gate::MemberGate, df::AbstractDataFrame)
+function _selectedby(gate::MemberGate, df::AbstractDataFrame)
     return map(df[!, gate.field]) do value
         coalesce(value in gate.ensemble, false)
     end
@@ -66,7 +65,7 @@ end
 
 Base.:(==)(g1::ConditionGate, g2::ConditionGate) = (g1.field == g2.field && g1.condition == g2.condition)
 
-@memoize Dict function selectedby(gate::ConditionGate, df::AbstractDataFrame)
+function _selectedby(gate::ConditionGate, df::AbstractDataFrame)
     return gate.condition.(df[!, gate.field])
 end
 
@@ -77,21 +76,31 @@ end
 
 #== Compound Gates ==#
 #== GateUnion (∪) ==#
-struct GateUnion{T <: Tuple} <: AbstractGate
-    gates::T
+struct GateUnion <: AbstractGate
+    gates::Vector{AbstractGate}
+
+    function GateUnion(gates)
+        union_gates = filter(g -> isa(g, GateUnion), gates)
+
+        isempty(union_gates) && return new(gates)
+
+        subgates = reduce(vcat, gate.gates for gate in union_gates)
+        other_gates = filter(g -> !isa(g, GateUnion), gates)
+        return new(vcat(subgates, other_gates))
+    end
 end
 
-GateUnion(gates...) = GateUnion(gates)
+GateUnion(gates...) = GateUnion(collect(gates))
 
 function (gate::GateUnion)(row)
     any(isapplicable(g, row) && g(row) for g in gate.gates)
 end
 
 function Base.union(gates::Vararg{AbstractGate})
-    return GateUnion(gates)
+    return GateUnion(collect(gates))
 end
 
-function selectedby(gate::GateUnion, df::AbstractDataFrame)
+function _selectedby(gate::GateUnion, df::AbstractDataFrame)
     return mapreduce(.|, gate.gates) do gate
         !isapplicable(gate, df) && return falses(nrow(df))
         return selectedby(gate, df)
@@ -118,7 +127,7 @@ GateIntersection(gates...) = GateIntersection(gates)
 
 (gate::GateIntersection)(row) = all(g(row) for g in gate.gates)
 
-function selectedby(gate::GateIntersection, df::AbstractDataFrame)
+function _selectedby(gate::GateIntersection, df::AbstractDataFrame)
     return reduce((.&), selectedby.(gate.gates, Ref(df)))
 end
 
@@ -144,7 +153,7 @@ end
 
 (gate::InvertedGate)(row) = !gate.base_gate(row)
 
-function selectedby(gate::InvertedGate, df::AbstractDataFrame)
+function _selectedby(gate::InvertedGate, df::AbstractDataFrame)
     return .!(selectedby(gate.base_gate, df))
 end
 
@@ -161,6 +170,10 @@ end
 
 #== Functionnalities ==#
 
+# TODO Reintroduce the caching ?
+# TODO Somehow caching the compound gate makes them super slow, and I don't quite now why
+selectedby(gate::AbstractGate, df::AbstractDataFrame) = _selectedby(gate, df)
+
 # TODO add filter!
 """
     filter(gate::AbstractGate, df::AbstractDataFrame)
@@ -169,7 +182,7 @@ Return a new DataFrame containing only the rows that respect the gating conditio
 """
 Base.filter(gate::AbstractGate, df::AbstractDataFrame) = @view df[selectedby(gate, df), :]
 
-@memoize Dict function groups_selectedby(gate::AbstractGate, grouped::GroupedDataFrame)
+@memoize ThreadSafeDict function groups_selectedby(gate::AbstractGate, grouped::GroupedDataFrame)
     groups = combine(grouped) do group
         (; selected = any(gate, eachrow(group)))
     end

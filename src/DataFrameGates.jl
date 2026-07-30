@@ -4,6 +4,7 @@ using DataFrames
 using Intervals
 using MacroTools
 using Memoization
+using ThreadSafeDicts
 
 export Interval
 
