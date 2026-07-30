@@ -10,6 +10,13 @@ struct AlwaysGate <: AbstractGate end
 selectedby(::AlwaysGate, df::AbstractDataFrame) = ones(Bool, nrow(df))
 isapplicable(::AlwaysGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
 
+#== NeverGate ==#
+
+struct NeverGate <: AbstractGate end
+(gate::NeverGate)(row) = false
+selectedby(::NeverGate, df::AbstractDataFrame) = zeros(Bool, nrow(df))
+isapplicable(::NeverGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
+
 #== SelectionGate (==) ==#
 struct SelectionGate{T} <: AbstractGate
     field::Symbol
@@ -154,6 +161,7 @@ end
 
 #== Functionnalities ==#
 
+# TODO add filter!
 """
     filter(gate::AbstractGate, df::AbstractDataFrame)
 
@@ -175,7 +183,7 @@ Return a new DataFrame containing all groups for which at least one row
 respect the gating condition.
 """
 function select_groups(gate::AbstractGate, grouped::GroupedDataFrame ; combine = true)
-    Base.depwarn("select_groups is deprecated in favor of the PerGroup (or PerShot for CEIAnalysis) gates", :select_groups ; force = true)
+    Base.depwarn("select_groups is deprecated in favor of the GroupGate (or PerShot for CEIAnalysis) gates", :select_groups ; force = true)
     groups = grouped[groups_selectedby(gate, grouped)]
     !combine && return groups
     return DataFrames.combine(groups, All())

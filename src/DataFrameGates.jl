@@ -9,13 +9,13 @@ export Interval
 
 include("gates.jl")
 
-export AbstractGate, AlwaysGate, SelectionGate, MemberGate, ConditionGate
+export AbstractGate, AlwaysGate, NeverGate, SelectionGate, MemberGate, ConditionGate
 export GateIntersection, GateUnion, InvertedGate
 export selectedby, select_groups, isapplicable
 export @gate
 
 include("group_gates.jl")
-export PerGroup
+export GroupGate, GroupGateIntersection
 
 
 end
