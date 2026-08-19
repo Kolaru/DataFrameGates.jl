@@ -7,6 +7,7 @@ isapplicable(gate::AbstractGate, df::Union{AbstractDataFrame, DataFrameRow}) = h
 #== AlwaysGate ==#
 struct AlwaysGate <: AbstractGate end
 (gate::AlwaysGate)(row) = true
+idstring(::AlwaysGate) = "_always_gate"
 _selectedby(::AlwaysGate, df::AbstractDataFrame) = ones(Bool, nrow(df))
 isapplicable(::AlwaysGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
 
@@ -14,6 +15,7 @@ isapplicable(::AlwaysGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
 
 struct NeverGate <: AbstractGate end
 (gate::NeverGate)(row) = false
+idstring(::NeverGate) = "_never_gate"
 _selectedby(::NeverGate, df::AbstractDataFrame) = zeros(Bool, nrow(df))
 isapplicable(::NeverGate, df::Union{AbstractDataFrame, DataFrameRow}) = true
 
@@ -30,6 +32,9 @@ function _selectedby(gate::SelectionGate, df::AbstractDataFrame)
         coalesce(value == gate.value, false)
     end
 end
+
+Base.:(==)(g1::SelectionGate, g2::SelectionGate) = g1.field == g2.field && g1.value == g2.value
+idstring(gate::SelectionGate) = "_selection_gate_$(gate.field)_$(gate.value)"
 
 function Base.show(io::IO, gate::SelectionGate)
     print(io, "Gate($(gate.field) == $(gate.value))")
@@ -50,6 +55,7 @@ function _selectedby(gate::MemberGate, df::AbstractDataFrame)
 end
 
 Base.:(==)(g1::MemberGate, g2::MemberGate) = g1.field == g2.field && g1.ensemble == g2.ensemble
+idstring(gate::MemberGate) = "_member_gate_$(gate.field)_$(hash(gate.ensemble))"
 
 function Base.show(io::IO, gate::MemberGate)
     print(io, "Gate($(gate.field) ∈ $(gate.ensemble))")
@@ -63,11 +69,12 @@ end
 
 (gate::ConditionGate)(row) = (gate.condition(row[gate.field]))
 
-Base.:(==)(g1::ConditionGate, g2::ConditionGate) = (g1.field == g2.field && g1.condition == g2.condition)
-
 function _selectedby(gate::ConditionGate, df::AbstractDataFrame)
     return gate.condition.(df[!, gate.field])
 end
+
+Base.:(==)(g1::ConditionGate, g2::ConditionGate) = (g1.field == g2.field && g1.condition == g2.condition)
+idstring(gate::ConditionGate) = "_condition_gate_$(gate.field)_$(gate.condition)"
 
 function Base.show(io::IO, gate::ConditionGate)
     print(io, "Gate($(gate.condition)($(gate.field)))")
@@ -107,6 +114,8 @@ function _selectedby(gate::GateUnion, df::AbstractDataFrame)
     end
 end
 
+idstring(gate::GateUnion) = "_union_gate" * join(idstring.(gate.gates))
+
 isapplicable(gate::GateUnion, df::Union{AbstractDataFrame, DataFrameRow}) = any(isapplicable.(gate.gates, Ref(df)))
 
 function Base.show(io::IO, gate::GateUnion)
@@ -130,6 +139,8 @@ GateIntersection(gates...) = GateIntersection(gates)
 function _selectedby(gate::GateIntersection, df::AbstractDataFrame)
     return reduce((.&), selectedby.(gate.gates, Ref(df)))
 end
+
+idstring(gate::GateIntersection) = "_instersection_gate" * join(idstring.(gate.gates))
 
 isapplicable(gate::GateIntersection, df::Union{AbstractDataFrame, DataFrameRow}) = all(isapplicable.(gate.gates, Ref(df)))
 
@@ -157,6 +168,8 @@ function _selectedby(gate::InvertedGate, df::AbstractDataFrame)
     return .!(selectedby(gate.base_gate, df))
 end
 
+idstring(gate::InvertedGate) = "_inverted_gate$(idstring(gate.base_gate))"
+
 isapplicable(gate::InvertedGate, df::Union{AbstractDataFrame, DataFrameRow}) = isapplicable(gate.base_gate, df)
 
 function Base.:(!)(gate::AbstractGate)
@@ -165,28 +178,6 @@ end
 
 function Base.show(io::IO, gate::InvertedGate)
     print(io, "!($(gate.base_gate))")
-end
-
-
-#== Functionnalities ==#
-
-# TODO Reintroduce the caching ?
-# TODO Somehow caching the compound gate makes them super slow, and I don't quite now why
-selectedby(gate::AbstractGate, df::AbstractDataFrame) = _selectedby(gate, df)
-
-# TODO add filter!
-"""
-    filter(gate::AbstractGate, df::AbstractDataFrame)
-
-Return a new DataFrame containing only the rows that respect the gating conditions.
-"""
-Base.filter(gate::AbstractGate, df::AbstractDataFrame) = @view df[selectedby(gate, df), :]
-
-@memoize ThreadSafeDict function groups_selectedby(gate::AbstractGate, grouped::GroupedDataFrame)
-    groups = combine(grouped) do group
-        (; selected = any(gate, eachrow(group)))
-    end
-    return groups.selected
 end
 
 """
